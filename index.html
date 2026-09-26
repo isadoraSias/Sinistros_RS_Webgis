@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+        <link rel="stylesheet" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/leaflet.photon.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
+        <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        #painel-filtros {
+            position: absolute;
+            top: 10px;
+            left: 50px;
+            z-index: 1000;
+            background: white;
+            padding: 10px 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            font-size: 13px;
+            max-width: 240px;
+        }
+        #painel-filtros select {
+            width: 100%;
+            margin-bottom: 6px;
+            padding: 4px;
+            font-size: 12px;
+        }
+        #painel-filtros button {
+            width: 100%;
+            padding: 5px;
+            background: #ff5773;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        #painel-filtros button:hover {
+            background: #e04a63;
+        }
+
+        #painel-resultado {
+            position: absolute;
+            bottom: 20px;
+            left: 50px;
+            z-index: 1000;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .popup-sinistro {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            width: 240px;
+        }
+        .popup-sinistro .popup-titulo {
+            background: #ff5773;
+            color: white;
+            padding: 6px 8px;
+            border-radius: 4px 4px 0 0;
+            font-weight: bold;
+            margin: -12px -18px 6px -18px;
+        }
+        .popup-sinistro hr {
+            margin: 6px 0;
+            border: none;
+            border-top: 1px solid #ddd;
+        }
+        </style>
+        <title>Sinistros nas Rodovias Federais do Rio Grande do Sul - 2017 a 2025</title>
+    </head>
+    <body>
+        <div id="map"></div>
+
+        <div id="painel-filtros">
+            <strong>Filtros</strong><br><br>
+            <select id="filtro-classificacao" data-campo="classificacao">
+                <option value="">Classificação: todas</option>
+            </select>
+            <select id="filtro-condicao" data-campo="condicao">
+                <option value="">Condição meteorológica: todas</option>
+            </select>
+            <select id="filtro-municipio" data-campo="municipio">
+                <option value="">Município: todos</option>
+            </select>
+            <select id="filtro-tipo" data-campo="tipo">
+                <option value="">Tipo de acidente: todos</option>
+            </select>
+            <select id="filtro-ano">
+                <option value="">Ano: todos</option>
+            </select>
+            <button id="filtro-limpar">Limpar filtros</button>
+        </div>
+
+        <div id="painel-resultado"></div>
+
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet.photon.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+        <script src="data/sinistros_dados.js"></script>
+        <script src="js/filtros.js"></script>
+        <script>
+        var map = L.map('map', {
+            zoomControl: false, maxZoom: 28, minZoom: 1
+        }).fitBounds([[-33.90618322687222,-57.66374490594629],[-26.880714193285424,-48.474031857273516]]);
+        var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+
+        var zoomControl = L.control.zoom({ position: 'topleft' }).addTo(map);
+
+        var title = new L.Control({'position':'topright'});
+        title.onAdd = function () {
+            this._div = L.DomUtil.create('div', 'info');
+            this._div.innerHTML = '<h2>Sinistros nas Rodovias Federais do Rio Grande do Sul - 2017 a 2025</h2>';
+            return this._div;
+        };
+        title.addTo(map);
+
+        var abstract = new L.Control({'position':'topright'});
+        abstract.onAdd = function () {
+            this._div = L.DomUtil.create('div', 'leaflet-control abstractUncollapsed');
+            this._div.id = 'abstract';
+            this._div.innerHTML = 'Localização dos Sinistros de Trânsito que ocorreram na Unidade de Federação do Rio Grande do Sul entre os anos de 2017 até 2025, nas rodovias federais. Fonte: Polícia Rodoviária Federal, dados abertos 2017 a 2025.';
+            return this._div;
+        };
+        abstract.addTo(map);
+
+        map.createPane('pane_GoogleRoad_0');
+        map.getPane('pane_GoogleRoad_0').style.zIndex = 400;
+        var layer_GoogleRoad_0 = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            pane: 'pane_GoogleRoad_0',
+            opacity: 1.0,
+            attribution: '<a href="https://www.google.at/permissions/geoguidelines/attr-guide.html">Map data ©2015 Google</a>',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        });
+        map.addLayer(layer_GoogleRoad_0);
+
+        // liga os filtros e desenha os pontos (definido em js/filtros.js)
+        iniciarFiltrosSinistros(map);
+        </script>
+    </body>
+</html>
