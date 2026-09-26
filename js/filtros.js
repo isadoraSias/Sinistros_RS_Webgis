@@ -30,7 +30,7 @@
 
     function popupHTML(row) {
         var municipio = D.municipio[row[COL.municipio]];
-        var diaSemana = D.diaSemana[row[COL.diaSemana]];
+        var diaSemana = D.dia_semana[row[COL.diaSemana]];
         var causa = D.causa_acidente[row[COL.causa]];
         var tipo = D.tipo_acidente[row[COL.tipo]];
         var classif = D.classificacao_acidente[row[COL.classif]];
